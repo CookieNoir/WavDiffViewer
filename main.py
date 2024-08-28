@@ -22,9 +22,10 @@ class WavData:
 
         g = dpg.add_group(horizontal=True, parent=h)
         self.begin_slider_id = dpg.add_input_int(label='begin', parent=g, min_value=0, max_value=len(self.data), default_value=0, width=200, step_fast=100, min_clamped=True, max_clamped=True, callback=lambda : update_callback())
-        self.width_slider_id = dpg.add_input_int(label='width', parent=g, min_value=1, max_value=len(self.data), default_value=min(len(self.data), 1000), width=200, step_fast=100,min_clamped=True, max_clamped=True, callback=lambda : update_callback())
+        self.width_slider_id = dpg.add_input_int(label='width', parent=g, min_value=1, max_value=len(self.data), default_value=min(len(self.data), 1000), width=200, step_fast=100, min_clamped=True, max_clamped=True, callback=lambda : update_callback())
 
-        self.y_offset_slider_id = dpg.add_input_int(label='y_offset', parent=g, default_value=0, width=200, step_fast=100, callback=lambda : update_callback())
+        self.y_offset_slider_id = dpg.add_input_int(label='y_offset', parent=g, default_value=0, width=100, step_fast=100, callback=lambda : update_callback())
+        self.y_scale_slider_id = dpg.add_input_float(label='y_scale', parent=g, default_value=1, width=100, min_value=0.01, max_value=10, step=0.001, step_fast=0.05, min_clamped=True, max_clamped=True, callback=lambda : update_callback())
 
     def actual_size(self):
         self.update_controls()
@@ -34,8 +35,8 @@ class WavData:
         right = []
         self.update_controls()
         for v in self.data[self.begin : self.begin + self.width]:
-            left.append(int(v[0]) + self.y_offset)
-            right.append(int(v[1]) + self.y_offset)
+            left.append(int(v[0]) * self.y_scale + self.y_offset)
+            right.append(int(v[1]) * self.y_scale + self.y_offset)
         l_result = left + [0] * (target_length - self.width)
         r_result = right + [0] * (target_length - self.width)
         return (l_result, r_result)
@@ -46,6 +47,7 @@ class WavData:
         self.width = dpg.get_value(self.width_slider_id)
 
         self.y_offset = dpg.get_value(self.y_offset_slider_id)
+        self.y_scale = dpg.get_value(self.y_scale_slider_id)
 
 
 
@@ -97,9 +99,12 @@ def update_plots_data():
             dpg.add_line_series(datax, right, label=f'{i}', tag=right_tag, parent='right_y_axis')
         else:
             dpg.set_value(right_tag, [datax, right])
-    # dpg.fit_axis_data('left_x_axis')
-    # dpg.fit_axis_data('left_y_axis')
 
+def fit_all_axis():
+    dpg.fit_axis_data('left_x_axis')
+    dpg.fit_axis_data('left_y_axis')
+    dpg.fit_axis_data('right_x_axis')
+    dpg.fit_axis_data('right_y_axis')
 
 with dpg.window(label="WavDiffViewer", width=1920, height=1080) as w:
     dpg.set_primary_window(w, True)
@@ -111,6 +116,7 @@ with dpg.window(label="WavDiffViewer", width=1920, height=1080) as w:
     dpg.add_group(tag='draw_items')
 
     dpg.add_button(label='Add file', callback=lambda: dpg.show_item("file_dialog_id"))
+    dpg.add_button(label='FitAll', callback=fit_all_axis)
     draw_plots(w)
 
 
