@@ -21,23 +21,31 @@ class WavData:
         h = dpg.add_collapsing_header(label=path, parent='draw_items', default_open=True)
 
         g = dpg.add_group(horizontal=True, parent=h)
-        self.begin_slider_id = dpg.add_input_int(label='begin', parent=g, min_value=0, max_value=len(self.data), default_value=0, width=200, step_fast=100, callback=lambda : update_callback())
-        self.end_slider_id = dpg.add_input_int(label='end', parent=g, min_value=0, max_value=len(self.data), default_value=len(self.data), width=200, step_fast=100, callback=lambda : update_callback())
+        self.begin_slider_id = dpg.add_input_int(label='begin', parent=g, min_value=0, max_value=len(self.data), default_value=0, width=200, step_fast=100, min_clamped=True, max_clamped=True, callback=lambda : update_callback())
+        self.width_slider_id = dpg.add_input_int(label='width', parent=g, min_value=1, max_value=len(self.data), default_value=min(len(self.data), 1000), width=200, step_fast=100,min_clamped=True, max_clamped=True, callback=lambda : update_callback())
 
+        self.y_offset_slider_id = dpg.add_input_int(label='y_offset', parent=g, default_value=0, width=200, step_fast=100, callback=lambda : update_callback())
 
     def actual_size(self):
-        self.update_range()
-        return self.end - self.begin + 1
-    def get_l(self, target_length):
-        result = []
-        self.update_range()
-        for v in self.data[self.begin : self.end]:
-            result.append(v[0])
-        return result + [0] * (target_length - len(result))
+        self.update_controls()
+        return self.width
+    def get_channels(self, target_length):
+        left = []
+        right = []
+        self.update_controls()
+        for v in self.data[self.begin : self.begin + self.width]:
+            left.append(int(v[0]) + self.y_offset)
+            right.append(int(v[1]) + self.y_offset)
+        l_result = left + [0] * (target_length - self.width)
+        r_result = right + [0] * (target_length - self.width)
+        return (l_result, r_result)
 
-    def update_range(self):
+
+    def update_controls(self):
         self.begin = dpg.get_value(self.begin_slider_id)
-        self.end = dpg.get_value(self.end_slider_id)
+        self.width = dpg.get_value(self.width_slider_id)
+
+        self.y_offset = dpg.get_value(self.y_offset_slider_id)
 
 
 
@@ -60,36 +68,35 @@ def callback(sender, app_data):
 def draw_plots(w):
 
     with dpg.plot(label="Left", parent=w, height=400, width=800):
-        # optionally create legend
         dpg.add_plot_legend()
-
-        # REQUIRED: create x and y axes
         dpg.add_plot_axis(dpg.mvXAxis, label="x", tag='left_x_axis')
-        y_axis = dpg.add_plot_axis(dpg.mvYAxis, label="y", tag='left_y_axis')
-        # series belong to a y axis
+        dpg.add_plot_axis(dpg.mvYAxis, label="y", tag='left_y_axis')
+
+
+
+    with dpg.plot(label="Right", parent=w, height=400, width=800):
+        dpg.add_plot_legend()
+        dpg.add_plot_axis(dpg.mvXAxis, label="x", tag='right_x_axis')
+        dpg.add_plot_axis(dpg.mvYAxis, label="y", tag='right_y_axis')
+
     update_plots_data()
 
-
-    # with dpg.plot(label="Right", parent=w, height=400, width=800):
-    #     # optionally create legend
-    #     dpg.add_plot_legend()
-    #
-    #     # REQUIRED: create x and y axes
-    #     dpg.add_plot_axis(dpg.mvXAxis, label="x")
-    #     y_axis = dpg.add_plot_axis(dpg.mvYAxis, label="y")
-
-        # for i, f in enumerate(files):
-        #     dpg.add_line_series(datax, f.r, label= f'{i}', parent=y_axis)
 
 def update_plots_data():
     datax = get_x_axis_data()
     for i, f in enumerate(files):
-        tag = f'left_{i}_line'
-        datay = f.get_l(len(datax))
-        if not dpg.does_item_exist(tag):
-            dpg.add_line_series(datax, datay, label=f'{i}', tag=tag, parent='left_y_axis')
+        left_tag = f'left_{i}_line'
+        right_tag = f'right_{i}_line'
+        left, right = f.get_channels(len(datax))
+        if not dpg.does_item_exist(left_tag):
+            dpg.add_line_series(datax, left, label=f'{i}', tag=left_tag, parent='left_y_axis')
         else:
-            dpg.set_value(tag, [datax, datay])
+            dpg.set_value(left_tag, [datax, left])
+
+        if not dpg.does_item_exist(right_tag):
+            dpg.add_line_series(datax, right, label=f'{i}', tag=right_tag, parent='right_y_axis')
+        else:
+            dpg.set_value(right_tag, [datax, right])
     # dpg.fit_axis_data('left_x_axis')
     # dpg.fit_axis_data('left_y_axis')
 
@@ -104,7 +111,6 @@ with dpg.window(label="WavDiffViewer", width=1920, height=1080) as w:
     dpg.add_group(tag='draw_items')
 
     dpg.add_button(label='Add file', callback=lambda: dpg.show_item("file_dialog_id"))
-    # dpg.add_button(label="Draw", callback=lambda: draw_plots(w))
     draw_plots(w)
 
 
