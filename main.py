@@ -35,11 +35,12 @@ class WavData:
         right = []
         self.update_controls()
         begin = self.begin + offset
-        for v in self.data[begin: begin + self.width]:
+        clamped_width = min(len(self.data) - begin, self.width)
+        for v in self.data[begin: begin + clamped_width]:
             left.append(int(v[0]) * self.y_scale + self.y_offset)
             right.append(int(v[1]) * self.y_scale + self.y_offset)
-        l_result = left + [0] * (target_length - self.width)
-        r_result = right + [0] * (target_length - self.width)
+        l_result = left + [0] * (target_length - clamped_width)
+        r_result = right + [0] * (target_length - clamped_width)
         return (l_result, r_result)
 
 
@@ -63,8 +64,13 @@ def get_x_axis_data():
     return result
 
 
-def callback(sender, app_data):
-    files.append(WavData(app_data['file_path_name'], update_plots_data))
+def file_dialog_callback(sender, app_data):
+    selections = app_data["selections"]
+    file_paths = list(selections.values())  # Get all selected file paths 
+    
+    for file_path in file_paths:
+        files.append(WavData(file_path, update_plots_data))
+        
     update_plots_data()
 
 
@@ -111,7 +117,7 @@ def fit_all_axis():
 with dpg.window(label="WavDiffViewer", width=1920, height=1080) as w:
     dpg.set_primary_window(w, True)
 
-    with dpg.file_dialog(show=False, directory_selector=False, callback=callback, tag="file_dialog_id", width=700, height=400, default_path='./data/', default_filename='initial.waw'):
+    with dpg.file_dialog(show=False, directory_selector=False, callback=file_dialog_callback, tag="file_dialog_id", width=700, height=400, default_path='./data/', default_filename='initial.waw'):
         dpg.add_file_extension('.wav')
         dpg.add_file_extension(".*")
 
